@@ -2,7 +2,7 @@
 
 module 	Mod1 {
 
-	class	Map {
+	export class	Map {
 		points;
 		name;
 		size;
@@ -20,31 +20,17 @@ module 	Mod1 {
 					this.points[j][i] = 0;
 				}
 			}
+			console.log('map generated');
 		}
 
 		public addPoints(points) {
-			var self = this;
-			points.forEach(function (itm) {
-				if (itm.y > 0 && itm.y < self.size.y && itm.x > 0 && itm.x < self.size.x)
-					self.points[itm.y][itm.x] = itm.z;
-			});
+			for (var i = 0; i < points.length; i++) {
+				this.points[points[i].y][points[i].x] = points[i].z
+			}
+		}
+
+		public get(x, y) {
+			return (this.points[y][x]);
 		}
 	}
-
-
-	function 	main() {
-		var map = new Map(10000, 10000, 'test');
-
-		var points = [
-			{ x: 10, y: 10, z: 10 },
-			{ x: 11, y: 11, z: 10 },
-			{ x: 12, y: 12, z: 12 }
-		];
-
-		map.addPoints(points);
-		
-		console.log('GTS prod\'');
-	}
-
-	main();
 }
