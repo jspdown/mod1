@@ -1,0 +1,85 @@
+<html>
+  <body>
+  	<form name="f">
+	<textarea id="textarea"></textarea>
+	<a href onclick="doThing();return false">Peace</a> 
+	</form>
+	<script>
+	function parseFile(_toParse)
+	{
+		var tab = [];
+		
+		for (var i = 0; i < _toParse.length; i++)
+		{
+			if (_toParse[i] == '(')
+			{
+				var oneValue = [];
+				for (; i < _toParse.length && _toParse[i] != ")"; i++)
+				{
+					var tmp = 0;
+					var number = "";
+					if (_toParse[i] >= '0' && _toParse[i] <= '9')
+						{
+							for (; i < _toParse.length && _toParse[i] != "," && _toParse[i] != ")"; i++)
+								number += _toParse[i];
+							oneValue.push(parseInt(number));
+							tmp += 1;
+						}
+					if (_toParse[i] == ')')
+						break;
+				}
+				tab.push({x: oneValue[0], y: oneValue[1], z: oneValue[2]});
+			}
+		}
+		return (tab);
+	}
+	
+	function reduceTab(tab, indice){
+		var firstIndice = 10000;
+		var diff = indice / firstIndice;
+		var newTab = [];		
+		
+		for (var i = 0; i < tab.length; i++)
+		{
+			if (typeof tab[i].x === 'undefined' || typeof tab[i].y === 'undefined' || typeof tab[i].z === 'undefined')
+				return (null);
+			var _x = Math.round(tab[i].x * diff);
+			var _y = Math.round(tab[i].y * diff);
+			var _z = Math.round(tab[i].z * diff);
+			newTab.push({x:_x, y:_y, z:_z});
+		}
+		for (var i = 0; i < newTab.length; i++)
+			for (var j = i + 1; j < newTab.length; j++)
+			{
+				if (newTab[i].x == newTab[j].x && newTab[i].y == newTab[j].y && newTab[i].z == newTab[j].z)
+				{
+					newTab.splice(j, 1);
+					break;
+				}
+			}
+		for (var i = 0; i < newTab.length; i++)
+			for (var j = i + 1; j < newTab.length; j++)
+			{
+				if (newTab[i].x == newTab[j].x && newTab[i].y == newTab[j].y)
+				{
+					newTab[i].z = Math.round((newTab[i].z + newTab[j].z) / 2);
+					newTab.splice(j, 1);
+					i = -1;
+					break;
+				}
+			}
+		return newTab;
+	}	
+	
+	function doThing(){
+		var tab = reduceTab(parseFile(document.getElementById("textarea").value), 100);
+		
+		if (tab != null)
+			for (var i = 0; i < tab.length; i++)
+				console.log("x:", tab[i].x, " y:", tab[i].y, " z:", tab[i].z);
+		else
+			console.log("Error");
+	}
+	</script>
+  </body>
+</html>
