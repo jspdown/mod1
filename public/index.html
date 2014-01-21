@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mod1 (malleg_a - moreau_p - ozouf_h)</title>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="js/lib/jquery-2.0.2.min.js"></script>
+    <script type="text/javascript" src="js/noise.js"></script>
+    <script type="text/javascript" src="js/lib/three.min.js"></script>
+    <script type="text/javascript" src="js/lib/dat.gui.min.js"></script>
+    <script type="text/javascript" src="js/lib/OrbitControls.js"></script>
+    <script type="text/javascript" src="js/skunami-cpu.js"></script>
+
+    <script>
+
+    var BACKGROUND_COLOR        = '#111111';
+    var SHADOW_MAP_RES          = 1024;
+    var TERRAIN_RES             = 200;
+    var TERRAIN_SIZE            = 10; 
+    var MEAN_WATER_HEIGHT       = 0;
+    var WATER_FLOOD_RATE        = 20.0;
+
+    var WATER_SIZE              = 10;
+    var WATER_RES               = 200;
+    var WATER_GRID_SIZE         = WATER_SIZE / WATER_RES;
+
+    var WATER_DAMPING_FACTOR    = 0.995;
+    var WATER_DISTURB_AMOUNT    = 0.1;
+
+    var GLOBAL_MAT              = new THREE.Matrix4();
+    
+
+
+    var clock = new THREE.Clock();
+    var currWaterHeight = MEAN_WATER_HEIGHT;
+    
+    var options = {
+        waterSimFloodRate:      WATER_FLOOD_RATE,
+        renderingShadows:       true,
+        renderingShadowCasters: false,
+        displayWireframe:       false,
+        displayLocalAxis:       false,
+        displayVelMag:          false,
+        displayVelDir:          false
+    };
+
+    var renderer;
+    var scene;
+    var camera;
+    var globalTransform;
+    var controls;
+    var keyLight;
+    var fillLight;
+    var materials = [];
+    var groundPlaneMesh;
+    var map;
+
+    function setupScene() {
+        //####################################################################################################
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias : true });
+        renderer.setSize(window.innerWidth, window.innerHeight - 5);
+        renderer.setClearColor(BACKGROUND_COLOR, 1);
+        renderer.shadowMapEnabled   = true;
+        renderer.shadowMapType      = THREE.PCFShadowMap;
+        renderer.shadowMapSoft      = true;
+        $('#threejs-container').append(renderer.domElement);
+        // Scene
+        scene = new THREE.Scene();
+        // Group
+        globalTransform = new THREE.Object3D();
+        globalTransform.matrixAutoUpdate = false;
+        globalTransform.matrix.multiply(GLOBAL_MAT);
+        globalTransform.matrixWorldNeedsUpdate = true;
+        scene.add(globalTransform);
+        // Camera
+        camera = new THREE.PerspectiveCamera(25, renderer.domElement.width / renderer.domElement.height, 0.1, 1000);
+        camera.position.set(8, 8, 15);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+        // Controls
+        controls = new THREE.OrbitControls(camera);
+        controls.modifierKey = 'ctrl';
+        //####################################################################################################     
+        //setup lights
+        globalTransform.add(new THREE.AmbientLight(0x000015));
+
+        keyLight = new THREE.SpotLight(0xffff00, 0.4);
+        keyLight.position.set(5, 15, -15);
+        keyLight.target.position.set(0, 0, 0);
+
+        keyLight.castShadow         = true;
+        keyLight.shadowCameraNear   = 20;
+        keyLight.shadowCameraFar    = 33;
+        keyLight.shadowCameraFov    = 35;
+        keyLight.shadowBias         = 0.0001;
+        keyLight.shadowDarkness     = 0.5;
+        keyLight.shadowMapWidth     = SHADOW_MAP_RES;
+        keyLight.shadowMapHeight    = SHADOW_MAP_RES;
+        globalTransform.add(keyLight);
+
+        fillLight = new THREE.SpotLight(0x00ff00, 0.3);
+        fillLight.position.set(5, 2, 15);
+        fillLight.target.position.set(0, 0, 0);
+        globalTransform.add(fillLight);
+    }
+
+    var terrainGeom;
+    var terrainMesh;
+    function setupGround(points) {
+        terrainGeom = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_RES - 1, TERRAIN_RES - 1);
+        terrainGeom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+        console.log(Math.sqrt(terrainGeom.vertices.length));
+        var noise = new Noise2D(TERRAIN_RES, TERRAIN_RES, points, 2, 7);
+        
+        for (var j = 0; j < TERRAIN_RES; j++) {
+             for (var i = 0; i < TERRAIN_RES; i++) {
+                 var v = noise.noise2DWithParam(i, j, 0.01, 1);
+                 terrainGeom.vertices[i * TERRAIN_RES + j].y = v / 5;
+             }
+         }
+        //  for (var i = 0; i < points.length; i++) {
+        //     terrainGeom.vertices[points[i].x * TERRAIN_RES + points[i].y].y = points[i].z / 5;
+        // }
+        
+        terrainGeom.computeFaceNormals();
+        terrainGeom.computeVertexNormals();
+        terrainGeom.normalsNeedUpdate = true;
+        var terrainMaterial = new THREE.MeshPhongMaterial();
+        materials.push(terrainMaterial);
+        terrainMesh = new THREE.Mesh(terrainGeom, terrainMaterial);
+        terrainMesh.castShadow = true;
+        terrainMesh.receiveShadow = true;
+        globalTransform.add(terrainMesh);
+    }
+
+    var terrainObstacle;
+    var waterMesh;
+    var hfWater, pipeModelWater;
+    var halfWaterSize = WATER_SIZE / 2.0;
+    var obstacles = [];
+
+    function setupWater() {
+        var waterGeom = new THREE.PlaneGeometry(WATER_SIZE, WATER_SIZE, WATER_RES - 1, WATER_RES - 1);
+        waterGeom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+        var waterMaterial = new THREE.MeshPhongMaterial({emissive: '#113366'});
+        materials.push(waterMaterial);
+        waterMesh = new THREE.Mesh(waterGeom, waterMaterial);
+        waterMesh.castShadow    = true;
+        waterMesh.receiveShadow = true;
+        globalTransform.add(waterMesh);
+
+
+        pipeModelWater = new FLUID.PipeModelWater({
+            mesh: waterMesh,
+            size: WATER_SIZE,
+            res: WATER_RES,
+            dampingFactor: WATER_DAMPING_FACTOR,
+            scene: scene,
+            terrainMesh: terrainMesh
+        });
+        hfWater = pipeModelWater;
+
+        terrainObstacle = new FLUID.TerrainObstacle(terrainMesh);
+        pipeModelWater.addObstacle(terrainObstacle, 'terrainObstacle');
+        terrainObstacle.updateAlways = true;
+    }
+
+
+    function setupEvents() {
+        window.addEventListener('resize', function (event) {
+            camera.aspect = window.innerWidth / (window.innerHeight);
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, false);
+    }
+
+
+    function setupGui() {
+
+        var gui = new dat.GUI({width: 350});
+        var waterSimFolder = gui.addFolder('Water Sim');
+        waterSimFolder.open();
+
+
+        var waterFloodVolRateControl = waterSimFolder.add(options, 'waterSimFloodRate', -200, 200).step(0.01).name('Flood Rate').listen();
+        changeWaterFloodRate = function (value) {
+            value = THREE.Math.clamp(value, waterFloodVolRateControl.__min, waterFloodVolRateControl.__max);
+            options.waterFloodVolRate = value;
+        };
+        waterFloodVolRateControl.onChange(changeWaterFloodRate);
+        changeWaterFloodRate(options.waterFloodVolRate);
+    }
+
+    $(document).ready(function () {
+        var points = [
+            { x: 1, y: 0, z: 2 },
+            { x: 2, y: 0, z: 2 },
+            { x: 1, y: 5, z: 2 },
+            { x: 1, y: 1, z: 2 },
+            { x: 0, y: 2, z: 1.5 },
+            { x: 1, y: 9, z: 1.7 },
+            { x: 7, y: 3, z: 3 },
+            { x: 8, y: 9, z: 2 }
+        ];
+        setupScene();
+        setupGround(points);
+        setupWater();
+        setupEvents();
+        setupGui();
+
+        var dV;
+        function loop() {
+
+            var dt = clock.getDelta();
+            var time = clock.getElapsedTime();
+
+            hfWater.update(dt);
+
+            renderer.autoClear = false;
+            renderer.clear();
+            renderer.render(scene, camera);
+
+            controls.update();
+            
+
+            dV = options.waterSimFloodRate * dt;
+            currWaterHeight += dV / (WATER_SIZE * WATER_SIZE * 10);
+            hfWater.setMeanHeight(currWaterHeight);
+            hfWater.flood(dV);
+
+            requestAnimationFrame(loop);
+        }
+        loop();
+    });
+    </script>
+</head>
+<body>
+    <div id="threejs-container"></div>
+</body>
+</html>
