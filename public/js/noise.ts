@@ -1,4 +1,68 @@
 
+
+class Simplify {
+	map;
+	res;
+	size;
+	tot;
+
+	constructor(size, map, points) {
+		this.map = map;
+		console.log(map.length);
+		this.size = size;
+		this.tot = this.size.x * this.size.y;
+		for (var i = 0; i < size.x * size.y; i++)
+			this.map[i].y = 0.0;
+		for (var i = 0; i < points.length; i++)
+			this.map[this.get2(points[i].x, points[i].y)].y = points[i].z
+	}
+
+	get(i) {
+		return ({x: (i % this.size.x) | 0, y: (i / this.size.x) | 0});
+	}
+
+	get2(x, y) {
+		var val = y * this.size.x + x;
+		return (y * this.size.x + x);
+	}
+
+	inside(x, v, coef) {
+		if (x >= 0 && x < this.tot)
+			this.map[x].y = (v + this.map[x].y) / 2;
+	}
+	interpolate(val, coef) {
+		var pos = this.get(val);
+		var v = this.map[val].y;
+		
+		var x1 = this.get2(pos.x - 1, pos.y - 1);
+		var x2 = this.get2(pos.x, pos.y - 1);
+		var x3 = this.get2(pos.x + 1, pos.y - 1);
+		var x4 = this.get2(pos.x + 1, pos.y);
+		var x5 = this.get2(pos.x + 1, pos.y + 1);
+		var x6 = this.get2(pos.x, pos.y + 1);
+		var x7 = this.get2(pos.x - 1, pos.y + 1);
+		var x8 = this.get2(pos.x - 1, pos.y);
+	
+		this.inside(x1, v, coef);
+		this.inside(x2, v, coef);
+		this.inside(x3, v, coef);
+		this.inside(x4, v, coef);
+		this.inside(x5, v, coef);
+		this.inside(x6, v, coef);
+		this.inside(x7, v, coef);
+		this.inside(x8, v, coef);
+	}
+
+	run(step, coef) {
+		for (var s = 0; s < step; s++) {
+			for (var i = 0; i < this.size.x * this.size.y; i++) {
+				this.interpolate(i, coef);
+			}
+		}
+		return (this.map);
+	}
+}
+
 class Noise2D {
 	size;
 	map;
@@ -16,18 +80,13 @@ class Noise2D {
 		this.octave = octave;
 		this.step2d = p;
 
-		console.log(Math.ceil);
-		console.log(Math.pow);
-
 		this.widthMax = Math.ceil(this.size.x * Math.pow(2, this.octave  - 1)  / this.step2d);
 		this.heightMax = Math.ceil(this.size.y * Math.pow(2, this.octave  - 1)  / this.step2d);
 		this.map = new Array(this.widthMax * this.heightMax);
 		this.pi = Math.PI;
 		for (var i = 0; i < this.widthMax * this.heightMax; i++) { this.map[i] = 0 }
-		for (var i = 0; i < points.length; i++) {
-			this.map[points[i].y * sizeX + points[i].x] = points[i].z;
-			console.log(points[i].z);
-		}
+		for (var i = 0; i < points.length; i++)
+			this.map[points[i].y * this.widthMax + points[i].x] = points[i].z;
 	}
 
 	fmod(a,b) { 
@@ -36,7 +95,6 @@ class Noise2D {
 
 	cosInterpolation1D(a, b, x) {
 		var k = (1 - Math.cos(x * this.pi)) / 2;
-//		console.log(a * (1 - k) + b * k, a, b, x);
 		return (a * (1 - k) + b * k);
 	}
 
