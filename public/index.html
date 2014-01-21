@@ -15,13 +15,13 @@
 
     var BACKGROUND_COLOR        = '#111111';
     var SHADOW_MAP_RES          = 1024;
-    var TERRAIN_RES             = 200;
-    var TERRAIN_SIZE            = 10; 
+    var TERRAIN_RES             = 20;
+    var TERRAIN_SIZE            = 20; 
     var MEAN_WATER_HEIGHT       = 0;
-    var WATER_FLOOD_RATE        = 20.0;
+    var WATER_FLOOD_RATE        = 0.1;
 
-    var WATER_SIZE              = 10;
-    var WATER_RES               = 200;
+    var WATER_SIZE              = 20;
+    var WATER_RES               = 20;
     var WATER_GRID_SIZE         = WATER_SIZE / WATER_RES;
 
     var WATER_DAMPING_FACTOR    = 0.995;
@@ -110,18 +110,33 @@
         terrainGeom = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_RES - 1, TERRAIN_RES - 1);
         terrainGeom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
         console.log(Math.sqrt(terrainGeom.vertices.length));
-        var noise = new Noise2D(TERRAIN_RES, TERRAIN_RES, points, 2, 7);
-        
+         
+//        for (var i = 0; i < points.length; i++) {
+  //         terrainGeom.vertices[points[i].x * TERRAIN_RES + points[i].y].y = points[i].z;
+//        }
+
         for (var j = 0; j < TERRAIN_RES; j++) {
              for (var i = 0; i < TERRAIN_RES; i++) {
-                 var v = noise.noise2DWithParam(i, j, 0.01, 1);
-                 terrainGeom.vertices[i * TERRAIN_RES + j].y = v / 5;
+                var currentPoint = terrainGeom.vertices[j * TERRAIN_RES + i];
+                var totalLength = 0;
+                for (var k = 0; k < points.length; k++) {
+                    totalLength += Math.sqrt(Math.pow(currentPoint.x - points[k].x, 2) + Math.pow(currentPoint.z - points[k].y, 2));
+                }
+                totalLength /= points.length;
+                currentPoint.y = 0;
+                for (var k = 0; k < points.length; k++) {
+                    var distanceToTested = Math.sqrt(Math.pow(currentPoint.x - points[k].x, 2) + Math.pow(currentPoint.z - points[k].y, 2));
+                    if (k == points.length - 1)
+                        console.log(distanceToTested);
+                    currentPoint.y += ((totalLength - distanceToTested) / totalLength) * points[k].z;
+                 }
              }
          }
-        //  for (var i = 0; i < points.length; i++) {
-        //     terrainGeom.vertices[points[i].x * TERRAIN_RES + points[i].y].y = points[i].z / 5;
-        // }
-        
+
+//        for (var i = 0; i < points.length; i++) {
+//           terrainGeom.vertices[points[i].x * TERRAIN_RES + points[i].y].y = points[i].z;
+//        }
+
         terrainGeom.computeFaceNormals();
         terrainGeom.computeVertexNormals();
         terrainGeom.normalsNeedUpdate = true;
@@ -193,14 +208,11 @@
 
     $(document).ready(function () {
         var points = [
-            { x: 1, y: 0, z: 2 },
-            { x: 2, y: 0, z: 2 },
-            { x: 1, y: 5, z: 2 },
-            { x: 1, y: 1, z: 2 },
-            { x: 0, y: 2, z: 1.5 },
-            { x: 1, y: 9, z: 1.7 },
-            { x: 7, y: 3, z: 3 },
-            { x: 8, y: 9, z: 2 }
+            { x: 0, y: 0, z: 3 },
+            { x: 0, y: 19, z: 0 },
+            { x: 19, y: 0, z: 0 },
+            { x: 19, y: 19, z: 0 },
+            { x: 14, y: 14, z: -5 }
         ];
         setupScene();
         setupGround(points);
