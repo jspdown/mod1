@@ -12,7 +12,7 @@ FLUID.PipeModelWater = function (options) {
     this.fluxL = [];
     this.fluxT = [];
 
-    this.minWaterHeight = -0.5;
+    this.minWaterHeight = -0.1;
     this.dHeights = [];
 
     this.terrainMesh = options.terrainMesh;
@@ -36,6 +36,7 @@ FLUID.PipeModelWater = function (options) {
     this.init();
 
     this.gravity = 9.81;
+    this.density = 1;
     this.pipeLength = this.segmentSize;
     this.pipeCrossSectionArea = this.pipeLength * this.pipeLength;
 
@@ -117,7 +118,7 @@ FLUID.PipeModelWater.prototype.sim = function (dt) {
     var vertexPos = this.geometry.vertices;
     var resMinusOne = this.res - 1;
 
-    dt = 3.0 / 60.0;
+    dt = 4.0 / 60.0;
 
     for (i = 1; i < resMinusOne; i++) {
         for (j = 1; j < resMinusOne; j++) {
