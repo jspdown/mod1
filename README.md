@@ -1,3 +1,3 @@
-mod1
-====
-tsc *.ts
+# Mod1
+
+Demo available on http://jspdown.github.io/mod1/
